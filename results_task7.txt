@@ -1,0 +1,17 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.14.2, pytest-9.0.3, pluggy-1.6.0 -- /Library/Frameworks/Python.framework/Versions/3.14/bin/python3.14
+cachedir: .pytest_cache
+rootdir: /Users/tanvibelli/Downloads/Task-4-LLM
+plugins: anyio-4.13.0
+collected 8 items                                                              
+
+tests/test_logic_lm.py::test_fc_homer_is_barts_parent PASSED             [ 12%]
+tests/test_logic_lm.py::test_fc_abraham_is_grandparent_of_bart PASSED    [ 25%]
+tests/test_logic_lm.py::test_fc_clancy_is_not_homers_parent PASSED       [ 37%]
+tests/test_logic_lm.py::test_bc_homer_is_barts_parent PASSED             [ 50%]
+tests/test_logic_lm.py::test_bc_abraham_is_grandparent_of_bart PASSED    [ 62%]
+tests/test_logic_lm.py::test_bc_jacqueline_is_grandparent_of_lisa PASSED [ 75%]
+tests/test_logic_lm.py::test_bc_clancy_is_not_homers_parent PASSED       [ 87%]
+tests/test_logic_lm.py::test_bc_mona_is_grandparent_of_maggie PASSED     [100%]
+
+============================== 8 passed in 0.05s ===============================
