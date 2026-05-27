@@ -1,5 +1,5 @@
 """
-task8_chain.py - Simplified Logic-LM Chain using real kb.pl
+task8_chain.py -  Simplified Logic-LM Chain using real kb.pl
 """
 from pyswip import Prolog
 
