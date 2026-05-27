@@ -1,0 +1,22 @@
+=== TASK 8 RUN (CONNECTED TO KB.PL) ===
+
+Q: Can a bat fly?
+Result: TRUE
+Trace:
+  Parsing query for: bat
+    → Formulated Prolog goal: can_fly(bat)
+    ✓ 'bat' matched factual pathways and rules in kb.pl
+
+Q: Can a penguin fly?
+Result: FALSE
+Trace:
+  Parsing query for: penguin
+    → Formulated Prolog goal: can_fly(penguin)
+    ✗ 'penguin' failed constraints or is missing from kb.pl
+
+Q: Can a dog fly?
+Result: FALSE
+Trace:
+  Parsing query for: dog
+    → Formulated Prolog goal: can_fly(dog)
+    ✗ 'dog' failed constraints or is missing from kb.pl
