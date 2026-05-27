@@ -1,13 +1,15 @@
 ============================================================
 SUMMARY
 ============================================================
-Question                            Goal                      Result
-------------------------------------------------------------
-Can a bat fly?                      can_fly(bat)              TRUE ✓
-Can a penguin fly?                  can_fly(penguin)          FALSE ✗
-Is a whale warm-blooded?            warm_blooded(whale)       TRUE ✓
-Is a crocodile cold-blooded?        cold_blooded(crocodile)   TRUE ✓
-Is an eagle a vertebrate?           vertebrate(eagle)         TRUE ✓
-Is a snake aquatic?                 aquatic(snake)            FALSE ✗
-Can an eagle fly?                   can_fly(eagle)            TRUE ✓
-Is a cat an animal?                 animal(cat)               TRUE ✓
+Q: Can a bat fly?
+Result: TRUE ✓
+Trace:
+  bat is a mammal ✓
+  bat has wings ✓
+
+Q: Can a penguin fly?
+Result: FALSE ✗
+Trace:
+  penguin is a bird ✓
+  penguin has wings ✓
+  penguin is a penguin → blocked by rule ✗
