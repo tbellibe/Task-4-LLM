@@ -1,7 +1,7 @@
 """
 logic_lm.py
 LangChain Logic-LM — logical inference engine
-Based on Logic-LM (Pan et al., 2023)
+Based on Logic-LM (Pan et al., 2023) logic
 """
 
 import os
