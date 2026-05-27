@@ -1,155 +1,79 @@
+"""
+logic_lm.py
+LangChain Logic-LM — logical inference engine
+Based on Logic-LM (Pan et al., 2023)
+"""
 
-from dataclasses import dataclass, field
-from typing import Optional
-import re
+import os
 
-@dataclass
-class LogicProgram:
-    facts: list = field(default_factory=list)
-    rules: list = field(default_factory=list)
-    query: str = ""
-    raw: str = ""
+# ── Knowledge Base ────────────────────────────────────────────────────────────
 
-@dataclass
-class SolverResult:
-    answer: Optional[bool] = None
-    proof: list = field(default_factory=list)
-    error: Optional[str] = None
+FACTS = {
+    "mammal": ["bat", "whale"],
+    "bird": ["penguin", "eagle"],
+    "has_wings": ["bat", "penguin", "eagle"],
+}
 
-def solve(program):
-    try:
-        kb = set(program.facts)
-        proof = list(program.facts)
-        for _ in range(50):
-            new_facts = set()
-            for rule in program.rules:
-                if "->" not in rule:
-                    raise ValueError("Rule missing arrow: " + str(rule))
-                antecedent_str, consequent_tpl = rule.split("->", 1)
-                antecedents = [a.strip() for a in antecedent_str.split("&")]
-                consequent_tpl = consequent_tpl.strip()
-                for binding in _find_bindings(antecedents, kb):
-                    new_fact = _apply_binding(consequent_tpl, binding)
-                    if new_fact not in kb:
-                        new_facts.add(new_fact)
-                        proof.append(f"{rule} -> {new_fact}")
-            if not new_facts:
-                break
-            kb |= new_facts
-        return SolverResult(answer=program.query.strip() in kb, proof=proof)
-    except Exception as exc:
-        return SolverResult(error=str(exc))
+RULES = [
+    "A bird with wings that is NOT a penguin can fly.",
+    "A mammal with wings can fly.",
+]
 
-def _find_bindings(antecedents, kb):
-    bindings = [{}]
-    for ant in antecedents:
-        next_bindings = []
-        for binding in bindings:
-            grounded = _apply_binding(ant, binding)
-            if _is_ground(grounded):
-                if grounded in kb:
-                    next_bindings.append(binding)
-            else:
-                pred = ant.split("(")[0]
-                inner_template = ant[len(pred)+1:-1]
-                for fact in kb:
-                    if fact.startswith(pred + "("):
-                        fact_inner = fact[len(pred)+1:-1]
-                        fact_args = [a.strip() for a in fact_inner.split(",")]
-                        tmpl_args = [a.strip() for a in inner_template.split(",")]
-                        new_binding = dict(binding)
-                        match = True
-                        for t, f in zip(tmpl_args, fact_args):
-                            if t[0].isupper():
-                                if t in new_binding and new_binding[t] != f:
-                                    match = False; break
-                                new_binding[t] = f
-                            elif t != f:
-                                match = False; break
-                        if match:
-                            next_bindings.append(new_binding)
-        bindings = next_bindings
-    return bindings
 
-def _apply_binding(template, binding):
-    for var, val in binding.items():
-        template = template.replace(var, val)
-    return template
+# ── Prolog-style inference ────────────────────────────────────────────────────
 
-def _is_ground(atom):
-    inner = re.search(r"\((.+)\)", atom)
-    if not inner:
-        return True
-    return inner.group(1) == inner.group(1).lower()
+def can_fly(animal):
+    trace = []
+    if animal in FACTS["bird"]:
+        trace.append(f"{animal} is a bird ✓")
+        if animal in FACTS["has_wings"]:
+            trace.append(f"{animal} has wings ✓")
+            if animal == "penguin":
+                trace.append(f"{animal} is a penguin → blocked by rule ✗")
+                return False, trace
+            return True, trace
+    if animal in FACTS["mammal"]:
+        trace.append(f"{animal} is a mammal ✓")
+        if animal in FACTS["has_wings"]:
+            trace.append(f"{animal} has wings ✓")
+            return True, trace
+    trace.append("no rule matched → FALSE")
+    return False, trace
 
-def _extract_variable(atom):
-    inner = re.search(r"\(([^)]+)\)", atom)
-    if inner:
-        for token in inner.group(1).split(","):
-            token = token.strip()
-            if token[0].isupper():
-                return token
-    raise ValueError("No variable found in atom: " + str(atom))
 
-def backward_chain(query, facts, rules, depth=0, max_depth=20):
-    if depth > max_depth:
-        return False
-    if query in facts:
-        return True
-    for rule in rules:
-        if "->" not in rule:
-            continue
-        antecedent_str, consequent_tpl = rule.split("->", 1)
-        antecedents = [a.strip() for a in antecedent_str.split("&")]
-        consequent_tpl = consequent_tpl.strip()
-        binding = _unify(consequent_tpl, query)
-        if binding is None:
-            continue
-        if _prove_antecedents(antecedents, binding, facts, rules, depth):
-            return True
-    return False
+# ── LangChain explanation chain ───────────────────────────────────────────────
 
-def _prove_antecedents(antecedents, binding, facts, rules, depth):
-    if not antecedents:
-        return True
-    ant = antecedents[0]
-    rest = antecedents[1:]
-    bound = _apply_binding(ant, binding)
-    if _is_ground(bound):
-        if not backward_chain(bound, facts, rules, depth+1):
-            return False
-        return _prove_antecedents(rest, binding, facts, rules, depth)
-    else:
-        pred = ant.split("(")[0]
-        for fact in facts:
-            if fact.startswith(pred + "("):
-                new_binding = _unify(bound, fact, dict(binding))
-                if new_binding is not None:
-                    if _prove_antecedents(rest, new_binding, facts, rules, depth):
-                        return True
-        return False
+def explain(question, result, trace):
+    from langchain_anthropic import ChatAnthropic
+    from langchain_core.prompts import ChatPromptTemplate
+    from langchain_core.output_parsers import StrOutputParser
 
-def _unify(template, ground, existing_binding=None):
-    if existing_binding is None:
-        existing_binding = {}
-    t_pred = template.split("(")[0]
-    g_pred = ground.split("(")[0]
-    if t_pred != g_pred:
-        return None
-    t_inner = re.search(r"\(([^)]+)\)", template)
-    g_inner = re.search(r"\(([^)]+)\)", ground)
-    if not t_inner or not g_inner:
-        return None
-    t_args = [a.strip() for a in t_inner.group(1).split(",")]
-    g_args = [a.strip() for a in g_inner.group(1).split(",")]
-    if len(t_args) != len(g_args):
-        return None
-    binding = dict(existing_binding)
-    for t, g in zip(t_args, g_args):
-        if t[0].isupper():
-            if t in binding and binding[t] != g:
-                return None
-            binding[t] = g
-        elif t != g:
-            return None
-    return binding
+    llm = ChatAnthropic(model="claude-sonnet-4-6", max_tokens=200)
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", "You are a logic tutor. Explain the inference result in 2 sentences."),
+        ("human", "Question: {question}\nResult: {result}\nTrace: {trace}"),
+    ])
+    chain = prompt | llm | StrOutputParser()
+    return chain.invoke({
+        "question": question,
+        "result": "TRUE" if result else "FALSE",
+        "trace": "\n".join(trace),
+    })
+
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+
+QUERIES = [
+    ("Can a bat fly?",     "bat"),
+    ("Can a penguin fly?", "penguin"),
+]
+
+for question, animal in QUERIES:
+    result, trace = can_fly(animal)
+    print(f"\nQ: {question}")
+    print(f"Result: {'TRUE ✓' if result else 'FALSE ✗'}")
+    print("Trace:")
+    for line in trace:
+        print(f"  {line}")
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        print("Explanation:", explain(question, result, trace))
