@@ -4,14 +4,13 @@ LangChain Logic-LM — logical inference engine
 Based on Logic-LM (Pan et al., 2023) logic
 """
 
-import os
-
 # ── Knowledge Base ────────────────────────────────────────────────────────────
+# 11 clean facts, 2 structured rules
 
 FACTS = {
-    "mammal": ["bat", "whale"],
-    "bird": ["penguin", "eagle"],
-    "has_wings": ["bat", "penguin", "eagle"],
+    "mammal": ["dog", "cat", "whale", "bat", "human"],
+    "bird": ["eagle", "penguin", "parrot"],
+    "has_wings": ["eagle", "bat", "parrot", "penguin"],
 }
 
 RULES = [
@@ -24,6 +23,8 @@ RULES = [
 
 def can_fly(animal):
     trace = []
+    
+    # Rule 1: A bird with wings that is NOT a penguin can fly
     if animal in FACTS["bird"]:
         trace.append(f"{animal} is a bird ✓")
         if animal in FACTS["has_wings"]:
@@ -32,48 +33,36 @@ def can_fly(animal):
                 trace.append(f"{animal} is a penguin → blocked by rule ✗")
                 return False, trace
             return True, trace
+            
+    # Rule 2: A mammal with wings can fly
     if animal in FACTS["mammal"]:
         trace.append(f"{animal} is a mammal ✓")
         if animal in FACTS["has_wings"]:
             trace.append(f"{animal} has wings ✓")
             return True, trace
+            
     trace.append("no rule matched → FALSE")
     return False, trace
 
 
-# ── LangChain explanation chain ───────────────────────────────────────────────
+# ── Main Execution ────────────────────────────────────────────────────────────
 
-def explain(question, result, trace):
-    from langchain_anthropic import ChatAnthropic
-    from langchain_core.prompts import ChatPromptTemplate
-    from langchain_core.output_parsers import StrOutputParser
+if __name__ == "__main__":
+    QUERIES = [
+        ("Can a bat fly?",     "bat"),
+        ("Can a penguin fly?", "penguin"),
+        ("Can a dog fly?",     "dog")
+    ]
 
-    llm = ChatAnthropic(model="claude-sonnet-4-6", max_tokens=200)
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", "You are a logic tutor. Explain the inference result in 2 sentences."),
-        ("human", "Question: {question}\nResult: {result}\nTrace: {trace}"),
-    ])
-    chain = prompt | llm | StrOutputParser()
-    return chain.invoke({
-        "question": question,
-        "result": "TRUE" if result else "FALSE",
-        "trace": "\n".join(trace),
-    })
+    print("========================================")
+    print("LOGICAL INFERENCE ENGINE RESULTS (LOGIC-LM)")
+    print("========================================")
 
-
-# ── Main ──────────────────────────────────────────────────────────────────────
-
-QUERIES = [
-    ("Can a bat fly?",     "bat"),
-    ("Can a penguin fly?", "penguin"),
-]
-
-for question, animal in QUERIES:
-    result, trace = can_fly(animal)
-    print(f"\nQ: {question}")
-    print(f"Result: {'TRUE ✓' if result else 'FALSE ✗'}")
-    print("Trace:")
-    for line in trace:
-        print(f"  {line}")
-    if os.environ.get("ANTHROPIC_API_KEY"):
-        print("Explanation:", explain(question, result, trace))
+    for question, animal in QUERIES:
+        result, trace = can_fly(animal)
+        print(f"\nQ: {question}")
+        print(f"Result: {'TRUE ✓' if result else 'FALSE ✗'}")
+        print("Trace:")
+        for line in trace:
+            print(f"  {line}")
+        print("-" * 40)
